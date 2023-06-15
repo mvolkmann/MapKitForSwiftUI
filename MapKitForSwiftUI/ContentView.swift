@@ -68,7 +68,7 @@ private let londonLandmarks: [Landmark] = [
     )
 ]
 
-private let rockyMountainlandmarks = [
+private let rockyMountainLandmarks = [
     Landmark(
         name: "Alberta Falls",
         latitude: 40.30366445278945,
@@ -120,25 +120,25 @@ private let rockyMountainlandmarks = [
     ),
 ]
 
+let landmarks = londonLandmarks
+// let landmarks = rockyMountainLandmarks
+
 struct ContentView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var route: MKRoute?
     @State private var searchResults: [MKMapItem] = []
     @State private var selectedResult: MKMapItem?
+    @State private var userLocation: CLLocationCoordinate2D?
     @State private var visibleRegion: MKCoordinateRegion?
 
     private func getDirections() {
         route = nil
+        guard let userLocation else { return }
         guard let selectedResult else { return }
 
         let request = MKDirections.Request()
-        let landmark = londonLandmarks[0]
-        let startCoordinate = CLLocationCoordinate2D(
-            latitude: landmark.latitude,
-            longitude: landmark.longitude
-        )
-        request
-            .source =
+        let startCoordinate = userLocation
+        request.source =
             MKMapItem(placemark: MKPlacemark(coordinate: startCoordinate))
         request.destination = selectedResult
 
@@ -149,7 +149,7 @@ struct ContentView: View {
         }
     }
 
-    private var searchButtons: some View {
+    private var myOverlay: some View {
         VStack {
             if let selectedResult {
                 InfoView(selectedResult: selectedResult, route: route)
@@ -212,14 +212,17 @@ struct ContentView: View {
             // When running in the Simulator:
             // - to pan the map, drag it in any direction
             // - to zoom in, double-click
-            // - to zoom out, hold down the option key and double-click
+            // - to zoom out, hold down the option key and click
             // - to rotate the map, hold down the option key and drag
             // - to change the pitch,
             //   hold down the shift and option keys and drag
-            Map(position: $position, selection: $selectedResult) {
+            Map(
+                position: $position,
+                selection: $selectedResult
+            ) {
                 // Marker("label", coordinate: coordinate)
 
-                ForEach(londonLandmarks, id: \.self) { landmark in
+                ForEach(landmarks, id: \.self) { landmark in
                     let coordinate = CLLocationCoordinate2D(
                         latitude: landmark.latitude,
                         longitude: landmark.longitude
@@ -276,14 +279,26 @@ struct ContentView: View {
                 // Other supported content includes
                 // MapCircle, MapPolyline, and MapPolygon.
 
+                // This shows the current location of the user
+                // with a filled blue circle.
+                // To set the user location used by the Simulator,
+                // select Features ... Location ... Custom Location...
+                // and enter latitude and longitude values.
+                // TODO: I can't get this to display in the Simulator!
                 UserAnnotation()
+                    .foregroundStyle(.red)
+                    .stroke(.purple, lineWidth: 3)
+                    .tint(.green)
             }
 
-            // This renders additional map controls in their default
-            // locations
+            // This renders additional map controls in their default locations
             // which varies by platform.  Descriptions below assume iOS.
             // Each map control is a SwiftUI view.
-            // To render them in another location,
+            // To render them in another location:
+            // - Add the `@Namespace var mapScope` property to the view.
+            // - Pass it to Map.  For example, `Map(scope: mapScope)`
+            // - Pass it to each map control.  For example,
+            //   `MapUserLocationButton(scope: mapScope)`
             // add them to your own container (ex. VStack).
             .mapControls {
                 // Tapping this scrolls map to user location.
@@ -298,7 +313,11 @@ struct ContentView: View {
 
                 // This shows the current map scale in the upper-left corner
                 // of the map only while the user is zooming in or out.
+                // To cause it to always be visible,
+                // add the mapControlVisibility modifier.
+                // It will only appear after the user interacts with the map.
                 MapScaleView()
+                    .mapControlVisibility(.visible)
             }
 
             // Renders a drawn view, not satellite images.
@@ -323,12 +342,10 @@ struct ContentView: View {
                 }
             }
 
-            // This allows displaying the buttons on top of the map.
-            .safeAreaInset(edge: .bottom) {
-                searchButtons
-            }
+            // This allows displaying a view on top of the map.
+            .safeAreaInset(edge: .bottom) { myOverlay }
 
-            /* Try something like this to get heading and pitch for camera.
+            /* TODO: Try something like this to set heading and pitch for camera.
              position = .camera(
                  MapCamera(
                      centerCoordinate: CLLocationCoordinate2D(
