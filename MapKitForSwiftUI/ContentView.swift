@@ -275,6 +275,30 @@ struct ContentView: View {
 
                 // Other supported content includes
                 // MapCircle, MapPolyline, and MapPolygon.
+
+                UserAnnotation()
+            }
+
+            // This renders additional map controls in their default
+            // locations
+            // which varies by platform.  Descriptions below assume iOS.
+            // Each map control is a SwiftUI view.
+            // To render them in another location,
+            // add them to your own container (ex. VStack).
+            .mapControls {
+                // Tapping this scrolls map to user location.
+                // It seems this does not work in the Simulator.
+                MapUserLocationButton()
+
+                // This shows a compass near the upper-right corner of the map
+                // if it has been rotated so north is not straight up.
+                // The letter inside it indicates the nearest primary direction
+                // that is up.
+                MapCompass()
+
+                // This shows the current map scale in the upper-left corner
+                // of the map only while the user is zooming in or out.
+                MapScaleView()
             }
 
             // Renders a drawn view, not satellite images.
@@ -283,7 +307,8 @@ struct ContentView: View {
             // Renders a satellite view with no labels.
             // .mapStyle(.imagery(elevation: .realistic))
 
-            // Renders a satellite view with labels for roads and other items.
+            // Renders a satellite view with labels for roads and other
+            // items.
             .mapStyle(.hybrid(elevation: .realistic))
 
             .onChange(of: selectedResult) {
