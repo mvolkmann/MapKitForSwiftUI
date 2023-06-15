@@ -268,6 +268,11 @@ struct ContentView: View {
                 }
                 // .annotationTitles(.hidden) // hides marker titles
 
+                if let route {
+                    MapPolyline(route)
+                        .stroke(.blue, lineWidth: 5)
+                }
+
                 // Other supported content includes
                 // MapCircle, MapPolyline, and MapPolygon.
             }
