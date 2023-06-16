@@ -1,13 +1,66 @@
+import Contacts // for CNPostalAddress
 import MapKit
 import SwiftUI
+
+private func dToS(_ d: Double) -> String {
+    String(format: "%.3f", d)
+}
 
 struct Landmark: Hashable {
     let name: String
     let latitude: Double
     let longitude: Double
+    let distance: Double
+    let heading: Double
+    let pitch: Double
     let symbol: String
     let color: Color
+    let address: [String: String]
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    init(
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        distance: Double = 0,
+        heading: Double = 0,
+        pitch: Double = 0,
+        symbol: String,
+        color: Color,
+        address: [String: String] = [:]
+    ) {
+        self.name = name
+        self.latitude = latitude
+        self.longitude = longitude
+        self.distance = distance
+        self.heading = heading
+        self.pitch = pitch
+        self.symbol = symbol
+        self.color = color
+        self.address = address
+    }
 }
+
+private let buckinghamPalace = Landmark(
+    name: "Buckingham Palace",
+    latitude: 51.50155095107456,
+    longitude: -0.14133177297470625,
+    distance: 577,
+    heading: 237,
+    pitch: 70,
+    symbol: "building.columns",
+    color: .orange,
+    address: [
+        CNPostalAddressCityKey: "London",
+        CNPostalAddressStateKey: "England",
+        CNPostalAddressPostalCodeKey: "SW1A 1AA",
+        CNPostalAddressCountryKey: "United Kingdom",
+        CNPostalAddressISOCountryCodeKey: "GB",
+    ]
+)
 
 private let londonLandmarks: [Landmark] = [
     Landmark(
@@ -17,13 +70,7 @@ private let londonLandmarks: [Landmark] = [
         symbol: "building.columns",
         color: .yellow
     ),
-    Landmark(
-        name: "Buckingham Place",
-        latitude: 51.50155095107456,
-        longitude: -0.14133177297470625,
-        symbol: "building.columns",
-        color: .yellow
-    ),
+    buckinghamPalace,
     Landmark(
         name: "Kensington Place",
         latitude: 51.50496237240371,
@@ -50,7 +97,33 @@ private let londonLandmarks: [Landmark] = [
         latitude: 51.494201497200315,
         longitude: -0.1419846404058454,
         symbol: "building.columns",
-        color: .yellow
+        color: .yellow,
+        address: [
+            /*
+             CNPostalAddressStreetKey: "239 Vauxhall Bridge Rd",
+             CNPostalAddressCityKey: "London",
+             CNPostalAddressStateKey: "England",
+             CNPostalAddressPostalCodeKey: "SW1V 1EQ",
+             CNPostalAddressCountryKey: "United Kingdom",
+             CNPostalAddressISOCountryCodeKey: "GB"
+             */
+            // This is the address of a book store near
+            // Park Plaza London Victoria that can be found by
+            // MKLookAroundSceneRequest in InfoView.swift.
+            // The code below attempts to use that same address,
+            // but this does not work and I have no idea why.
+            // The getLookAroundScene function in InfoView.swift
+            // prints "
+            CNPostalAddressLocalizedPropertyNameAttribute: "Gallic Books",
+            CNPostalAddressStreetKey: "59 Ebury St",
+            CNPostalAddressCityKey: "London",
+            CNPostalAddressSubAdministrativeAreaKey: "London",
+            CNPostalAddressSubLocalityKey: "City of Westminster",
+            CNPostalAddressStateKey: "England",
+            CNPostalAddressPostalCodeKey: "SW1W 0NZ",
+            CNPostalAddressCountryKey: "United Kingdom",
+            CNPostalAddressISOCountryCodeKey: "GB"
+        ]
     ),
     Landmark(
         name: "Trafalgar Square",
@@ -124,35 +197,50 @@ let landmarks = londonLandmarks
 // let landmarks = rockyMountainLandmarks
 
 struct ContentView: View {
+    @State private var camera: MapCamera?
     @State private var position: MapCameraPosition = .automatic
     @State private var route: MKRoute?
     @State private var searchResults: [MKMapItem] = []
-    @State private var selectedResult: MKMapItem?
+    @State private var selectedMapItem: MKMapItem?
     @State private var userLocation: CLLocationCoordinate2D?
     @State private var visibleRegion: MKCoordinateRegion?
+
+    init() {
+        // TODO: How can you get this without hard-coding a value?
+        _userLocation = State(initialValue: CLLocationCoordinate2D(
+            latitude: 51.494201497200315,
+            longitude: -0.1419846404058454
+        ))
+    }
 
     private func getDirections() {
         route = nil
         guard let userLocation else { return }
-        guard let selectedResult else { return }
+        guard let selectedMapItem else { return }
 
         let request = MKDirections.Request()
         let startCoordinate = userLocation
         request.source =
             MKMapItem(placemark: MKPlacemark(coordinate: startCoordinate))
-        request.destination = selectedResult
+
+        request.destination = selectedMapItem
+        print(
+            "getDirections: postalAddress =",
+            selectedMapItem.placemark.postalAddress
+        )
 
         Task {
             let directions = MKDirections(request: request)
             let response = try? await directions.calculate()
             route = response?.routes.first
+            print("getDirections: route =", route)
         }
     }
 
     private var myOverlay: some View {
         VStack {
-            if let selectedResult {
-                InfoView(selectedResult: selectedResult, route: route)
+            if let selectedMapItem {
+                InfoView(mapItem: selectedMapItem, route: route)
                     .frame(height: 128)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding([.top, .horizontal])
@@ -171,12 +259,26 @@ struct ContentView: View {
                     Label("Pizza", systemImage: "fork.knife")
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button("Buck") {
+                    updateCamera(landmark: buckinghamPalace)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            if let camera {
+                HStack {
+                    let d = dToS(camera.distance)
+                    let h = dToS(camera.heading)
+                    let p = dToS(camera.pitch)
+                    Text("distance: \(d), heading: \(h), pitch: \(p)")
+                        .font(.callout)
+                        .foregroundStyle(.white)
+                }
             }
         }
     }
 
     private func search(for query: String) {
-        print("search entered")
         guard let center = visibleRegion?.center else {
             searchResults = []
             return
@@ -195,6 +297,20 @@ struct ContentView: View {
             let response = try? await search.start()
             searchResults = response?.mapItems ?? []
         }
+    }
+
+    private func updateCamera(landmark: Landmark) {
+        position = .camera(
+            MapCamera(
+                centerCoordinate: CLLocationCoordinate2D(
+                    latitude: landmark.latitude,
+                    longitude: landmark.longitude
+                ),
+                distance: landmark.distance,
+                heading: landmark.heading,
+                pitch: landmark.pitch
+            )
+        )
     }
 
     var body: some View {
@@ -218,27 +334,17 @@ struct ContentView: View {
             //   hold down the shift and option keys and drag
             Map(
                 position: $position,
-                selection: $selectedResult
+                selection: $selectedMapItem
             ) {
-                // Marker("label", coordinate: coordinate)
-
                 ForEach(landmarks, id: \.self) { landmark in
-                    let coordinate = CLLocationCoordinate2D(
-                        latitude: landmark.latitude,
-                        longitude: landmark.longitude
-                    )
-
-                    // This displays a balloon icon.
-                    // Marker(landmark.name, coordinate: coordinate)
-
-                    // This can display any SwiftUI view.
+                    // An Annotation can display any SwiftUI view.
                     // This triggers the warning "Publishing changes from
-                    // within view // updates is not allowed, this will cause
+                    // within view updates is not allowed, this will cause
                     // undefined behavior" for each landmark even though
                     // my code doesn't change any state!
                     Annotation(
                         landmark.name,
-                        coordinate: coordinate,
+                        coordinate: landmark.coordinate,
                         // This specifies the point in the annotation
                         // that should be at the coordinate.
                         anchor: .center
@@ -248,7 +354,31 @@ struct ContentView: View {
                             // .background(.yellow)
                             // .cornerRadius(4)
                             .foregroundColor(landmark.color)
+                            .onTapGesture(count: 1) {
+                                selectedMapItem = MKMapItem(
+                                    placemark: MKPlacemark(
+                                        coordinate: CLLocationCoordinate2D(
+                                            latitude: landmark.latitude,
+                                            longitude: landmark.longitude
+                                        ),
+                                        addressDictionary: landmark.address
+                                    )
+                                )
+                                selectedMapItem!.name = landmark.name
+                            }
                     }
+
+                    /*
+                     // These markers cannot be selected by the user
+                     // and I have no idea why.  They look just like the
+                     // search markers below and those can be selected.
+                     Marker(
+                         landmark.name,
+                         systemImage: landmark.symbol,
+                         coordinate: landmark.coordinate
+                     )
+                     .tint(landmark.color)
+                     */
                 }
 
                 ForEach(searchResults, id: \.self) { result in
@@ -257,8 +387,9 @@ struct ContentView: View {
                     // based on the kind of place it represents.
                     // Marker(item: result)
 
-                    // The contents of the map pin ballon
-                    // can be customized as follows.
+                    // The contents of the map pin ballon can be customized
+                    // with image, monogram, and systemImage.
+                    // The color is set with the tint modifier.
                     let mark = result.placemark
                     Marker(
                         mark.name ?? "?",
@@ -276,8 +407,7 @@ struct ContentView: View {
                         .stroke(.blue, lineWidth: 5)
                 }
 
-                // Other supported content includes
-                // MapCircle, MapPolyline, and MapPolygon.
+                // Other supported content includes MapCircle and MapPolygon.
 
                 // This shows the current location of the user
                 // with a filled blue circle.
@@ -330,13 +460,21 @@ struct ContentView: View {
             // items.
             .mapStyle(.hybrid(elevation: .realistic))
 
-            .onChange(of: selectedResult) {
+            /*
+             .onChange(of: position) {
+                 print("position =", position)
+             }
+             */
+
+            .onChange(of: selectedMapItem) {
                 getDirections()
             }
 
             // This is only called when the user
             // stops interacting with the map.
             .onMapCameraChange { context in
+                // print("context =", context)
+                camera = context.camera
                 Task { @MainActor in
                     visibleRegion = context.region
                 }
@@ -344,20 +482,6 @@ struct ContentView: View {
 
             // This allows displaying a view on top of the map.
             .safeAreaInset(edge: .bottom) { myOverlay }
-
-            /* TODO: Try something like this to set heading and pitch for camera.
-             position = .camera(
-                 MapCamera(
-                     centerCoordinate: CLLocationCoordinate2D(
-                         latitude: some-value,
-                         longitude: some-value
-                     ),
-                     distance: 980,
-                     heading: 242,
-                     pitch: 60
-                 )
-             )
-             */
 
             /* To automatically scroll the map as the user moves ...
              position = .userLocation(fallback: .automatic)

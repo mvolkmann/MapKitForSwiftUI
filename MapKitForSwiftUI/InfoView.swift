@@ -3,19 +3,33 @@ import SwiftUI
 
 struct InfoView: View {
     @State private var lookAroundScene: MKLookAroundScene?
-    private var selectedResult: MKMapItem
+    private var mapItem: MKMapItem
     private var route: MKRoute?
 
-    init(selectedResult: MKMapItem, route: MKRoute?) {
-        self.selectedResult = selectedResult
+    init(mapItem: MKMapItem, route: MKRoute?) {
+        self.mapItem = mapItem
         self.route = route
     }
 
     private func getLookAroundScene() {
+        print(
+            "getLookAroundScene: address =",
+            mapItem.placemark.addressDictionary
+        )
         lookAroundScene = nil
         Task {
-            let request = MKLookAroundSceneRequest(mapItem: selectedResult)
-            lookAroundScene = try? await request.scene
+            let request = MKLookAroundSceneRequest(mapItem: mapItem)
+            do {
+                lookAroundScene = try await request.scene
+            } catch {
+                if let e = error as? MKError,
+                   e.code == MKError.placemarkNotFound {
+                    print("placemark not found")
+                } else {
+                    print("MKError =", error.localizedDescription)
+                }
+            }
+            print("getLookAroundScene: lookAroundScene =", lookAroundScene)
         }
     }
 
@@ -31,7 +45,7 @@ struct InfoView: View {
         LookAroundPreview(initialScene: lookAroundScene)
             .overlay(alignment: .bottomTrailing) {
                 HStack {
-                    Text(selectedResult.name ?? "")
+                    Text(mapItem.name ?? "")
                     if let travelTime {
                         Text(travelTime)
                     }
@@ -43,7 +57,7 @@ struct InfoView: View {
             .onAppear {
                 getLookAroundScene()
             }
-            .onChange(of: selectedResult) {
+            .onChange(of: mapItem) {
                 getLookAroundScene()
             }
     }
