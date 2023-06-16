@@ -113,7 +113,7 @@ private let londonLandmarks: [Landmark] = [
             // The code below attempts to use that same address,
             // but this does not work and I have no idea why.
             // The getLookAroundScene function in InfoView.swift
-            // prints "
+            // prints "placemark not found"!
             CNPostalAddressLocalizedPropertyNameAttribute: "Gallic Books",
             CNPostalAddressStreetKey: "59 Ebury St",
             CNPostalAddressCityKey: "London",
