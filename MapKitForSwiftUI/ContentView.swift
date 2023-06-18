@@ -99,28 +99,10 @@ private let londonLandmarks: [Landmark] = [
         symbol: "building.columns",
         color: .yellow,
         address: [
-            /*
-             CNPostalAddressStreetKey: "239 Vauxhall Bridge Rd",
-             CNPostalAddressCityKey: "London",
-             CNPostalAddressStateKey: "England",
-             CNPostalAddressPostalCodeKey: "SW1V 1EQ",
-             CNPostalAddressCountryKey: "United Kingdom",
-             CNPostalAddressISOCountryCodeKey: "GB"
-             */
-            // This is the address of a book store near
-            // Park Plaza London Victoria that can be found by
-            // MKLookAroundSceneRequest in InfoView.swift.
-            // The code below attempts to use that same address,
-            // but this does not work and I have no idea why.
-            // The getLookAroundScene function in InfoView.swift
-            // prints "placemark not found"!
-            CNPostalAddressLocalizedPropertyNameAttribute: "Gallic Books",
-            CNPostalAddressStreetKey: "59 Ebury St",
+            CNPostalAddressStreetKey: "239 Vauxhall Bridge Rd",
             CNPostalAddressCityKey: "London",
-            CNPostalAddressSubAdministrativeAreaKey: "London",
-            CNPostalAddressSubLocalityKey: "City of Westminster",
             CNPostalAddressStateKey: "England",
-            CNPostalAddressPostalCodeKey: "SW1W 0NZ",
+            CNPostalAddressPostalCodeKey: "SW1V 1EQ",
             CNPostalAddressCountryKey: "United Kingdom",
             CNPostalAddressISOCountryCodeKey: "GB"
         ]
@@ -202,38 +184,30 @@ struct ContentView: View {
     @State private var route: MKRoute?
     @State private var searchResults: [MKMapItem] = []
     @State private var selectedMapItem: MKMapItem?
-    @State private var userLocation: CLLocationCoordinate2D?
     @State private var visibleRegion: MKCoordinateRegion?
+    @State private var locationManager = LocationManager()
 
     init() {
-        // TODO: How can you get this without hard-coding a value?
-        _userLocation = State(initialValue: CLLocationCoordinate2D(
-            latitude: 51.494201497200315,
-            longitude: -0.1419846404058454
-        ))
+        locationManager.startUpdating()
     }
 
     private func getDirections() {
         route = nil
-        guard let userLocation else { return }
         guard let selectedMapItem else { return }
+        guard let userLocation = locationManager.lastKnownLocation
+        else { return }
 
         let request = MKDirections.Request()
-        let startCoordinate = userLocation
-        request.source =
-            MKMapItem(placemark: MKPlacemark(coordinate: startCoordinate))
+        request.source = MKMapItem(
+            placemark: MKPlacemark(coordinate: userLocation.coordinate)
+        )
 
         request.destination = selectedMapItem
-        print(
-            "getDirections: postalAddress =",
-            selectedMapItem.placemark.postalAddress
-        )
 
         Task {
             let directions = MKDirections(request: request)
             let response = try? await directions.calculate()
             route = response?.routes.first
-            print("getDirections: route =", route)
         }
     }
 
@@ -473,7 +447,6 @@ struct ContentView: View {
             // This is only called when the user
             // stops interacting with the map.
             .onMapCameraChange { context in
-                // print("context =", context)
                 camera = context.camera
                 Task { @MainActor in
                     visibleRegion = context.region

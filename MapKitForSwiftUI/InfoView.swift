@@ -12,10 +12,6 @@ struct InfoView: View {
     }
 
     private func getLookAroundScene() {
-        print(
-            "getLookAroundScene: address =",
-            mapItem.placemark.addressDictionary
-        )
         lookAroundScene = nil
         Task {
             let request = MKLookAroundSceneRequest(mapItem: mapItem)
@@ -24,12 +20,14 @@ struct InfoView: View {
             } catch {
                 if let e = error as? MKError,
                    e.code == MKError.placemarkNotFound {
-                    print("placemark not found")
+                    print("InfoView.getLookAroundScene: placemark not found")
                 } else {
-                    print("MKError =", error.localizedDescription)
+                    print(
+                        "InfoView.getLookAroundScene: error =",
+                        error.localizedDescription
+                    )
                 }
             }
-            print("getLookAroundScene: lookAroundScene =", lookAroundScene)
         }
     }
 
