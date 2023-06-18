@@ -3,7 +3,7 @@ import CoreLocation
 // See https://stackoverflow.com/questions/56533059/how-to-get-current-location-with-swiftui.
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
-    var lastKnownLocation: CLLocation?
+    @Published var lastKnownLocation: CLLocation?
 
     func startUpdating() {
         manager.delegate = self
